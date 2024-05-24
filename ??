@@ -1,0 +1,53 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy import signal
+import control as ctl
+
+
+# Filtrar valores de RPM irrealisticamente altos
+filtered_data = data[data['RPM'] < 6000]
+
+# Dados filtrados
+tempo_filtrado = filtered_data['Tempo (s)'].values
+rpm_filtrado = filtered_data['RPM'].values
+
+# Determinar o valor final de RPM (assumindo que é o valor médio dos últimos 10% dos dados)
+K = np.mean(rpm_filtrado[int(len(rpm_filtrado) * 0.9):])
+
+# Parâmetros calculados previamente
+K_second_order = 3511.47
+omega_n = 0.81
+zeta = 1.00
+
+# Função de transferência de segunda ordem
+num_second_order = [K_second_order * omega_n**2]
+den_second_order = [1, 2 * zeta * omega_n, omega_n**2]
+system_second_order = ctl.TransferFunction(num_second_order, den_second_order)
+
+# Parâmetros do controlador PID (ajuste inicial)
+Kp = 1.0
+Ki = 1.0
+Kd = 0.1
+
+# Controlador PID
+pid_controller = ctl.TransferFunction([Kd, Kp, Ki], [1, 0])
+
+# Sistema em malha fechada
+closed_loop_system = ctl.feedback(pid_controller * system_second_order, 1)
+
+# Simulação da resposta ao degrau
+t, y = ctl.step_response(closed_loop_system)
+
+# Plotar a resposta ao degrau do sistema em malha fechada
+plt.figure(figsize=(10, 6))
+plt.plot(t, y, label='Resposta ao Degrau (Sistema em Malha Fechada)')
+plt.xlabel('Tempo (s)')
+plt.ylabel('Posição')
+plt.title('Resposta ao Degrau do Sistema de Controle de Posição do Elevador')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Função de transferência de segunda ordem
+print(f"Função de Transferência de Segunda Ordem: G(s) = {K_second_order:.2f} / (s^2 + {2*zeta*omega_n:.2f}s + {omega_n**2:.2f})")
